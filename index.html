@@ -2,170 +2,288 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Study Planner Ultimate</title>
+<title>Study Planner Pro</title>
 
-<!-- Firebase CDN (import 쓰면 안됨) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <style>
-body{margin:0;font-family:-apple-system;background:#f4f6fb}
+body{
+  font-family:-apple-system,BlinkMacSystemFont;
+  margin:0;
+  background:#f4f6fb;
+}
 header{
-  background:linear-gradient(90deg,#667eea,#764ba2);
-  color:white;padding:18px;text-align:center;font-size:20px;font-weight:bold
+  background:#4f6cff;
+  color:white;
+  padding:20px;
+  text-align:center;
+  font-size:22px;
+  font-weight:bold;
 }
-.container{padding:20px}
-button{
-  padding:8px 12px;border:none;border-radius:8px;cursor:pointer
+.container{
+  padding:20px;
+  max-width:900px;
+  margin:auto;
 }
-.login{background:#4285F4;color:white}
 .card{
-  background:white;padding:15px;border-radius:12px;
-  margin-top:15px;box-shadow:0 3px 10px rgba(0,0,0,0.05)
+  background:white;
+  border-radius:16px;
+  padding:20px;
+  margin-bottom:20px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.05);
 }
-table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{border:1px solid #ddd;padding:6px;text-align:center}
-td{cursor:pointer}
-.completed{background:#c8f7dc}
-.skip{background:#e5e5e5}
-.hidden{display:none}
-textarea{
-  width:100%;margin-top:10px;padding:8px;
-  border-radius:8px;border:1px solid #ccc
+button{
+  background:#4f6cff;
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:8px;
+  margin:4px;
 }
+input{
+  width:100%;
+  padding:6px;
+  border-radius:6px;
+  border:1px solid #ddd;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:5px;
+}
+.dayHeader{
+  font-weight:bold;
+  text-align:center;
+}
+.smallBtn{
+  font-size:13px;
+  padding:6px 10px;
+}
+.statBox{
+  display:flex;
+  justify-content:space-between;
+  margin-top:10px;
+}
+.calendar{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:4px;
+  margin-top:10px;
+}
+.calDay{
+  background:#eee;
+  padding:8px;
+  border-radius:6px;
+  text-align:center;
+  font-size:13px;
+}
+.green{background:#b8f5c4;}
+.red{background:#ffb3b3;}
+.gray{background:#ddd;}
 </style>
 </head>
-
 <body>
 
-<header>📚 Study Planner Ultimate</header>
+<header>📚 Study Planner Pro</header>
 
 <div class="container">
-<button id="loginBtn" class="login">구글 로그인</button>
 
-<div id="main" class="hidden">
+<div class="card" id="loginCard">
+<button onclick="login()">Google 로그인</button>
+</div>
+
+<div id="main" style="display:none;">
 
 <div class="card">
 <h3 id="todayTitle"></h3>
-<div id="todaySchedule"></div>
-<textarea id="extraStudy" placeholder="추가로 공부한 내용"></textarea>
-<button onclick="saveExtra()">저장</button>
+<div id="todaySummary"></div>
+<textarea id="extraStudy" placeholder="추가 공부 기록"></textarea>
+<button onclick="saveExtra()">추가 공부 저장</button>
 </div>
 
 <div class="card">
-<h3>시간표 편집</h3>
-<div id="timetable"></div>
+<h3>시간표 설정</h3>
+<div class="grid" id="timetableGrid"></div>
+<button onclick="saveTimetable()">시간표 저장</button>
+</div>
+
+<div class="card">
+<h3>📊 통계</h3>
+<div class="statBox">
+<div>완료: <span id="doneCount">0</span></div>
+<div>불필요: <span id="skipCount">0</span></div>
+<div>미완료: <span id="noneCount">0</span></div>
+</div>
+</div>
+
+<div class="card">
+<h3>📅 이번 달 기록</h3>
+<div class="calendar" id="calendar"></div>
 </div>
 
 </div>
 </div>
 
 <script>
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDwusubOIRaETM6p7Bn0FIJXLzOngknoNw",
-  authDomain: "study-33c31.firebaseapp.com",
-  projectId: "study-33c31",
-  storageBucket: "study-33c31.firebasestorage.app",
-  messagingSenderId: "219345133274",
-  appId: "1:219345133274:web:9288b1301abe88bb4dcfe3"
+const firebaseConfig={
+apiKey:"AIzaSyDwusubOIRaETM6p7Bn0FIJXLzOngknoNw",
+authDomain:"study-33c31.firebaseapp.com",
+projectId:"study-33c31",
+storageBucket:"study-33c31.firebasestorage.app",
+messagingSenderId:"219345133274",
+appId:"1:219345133274:web:9288b1301abe88bb4dcfe3"
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+const auth=firebase.auth();
+const db=firebase.firestore();
 
-const days=["월","화","수","목","금","토","일"];
 let userId=null;
+const days=["월","화","수","목","금","토","일"];
 
-document.getElementById("loginBtn").onclick=async()=>{
-  const provider=new firebase.auth.GoogleAuthProvider();
-  const result=await auth.signInWithPopup(provider);
-  userId=result.user.uid;
-  document.getElementById("main").classList.remove("hidden");
-  loadTable();
-  showToday();
-};
-
-async function loadTable(){
-  const doc=await db.collection("users").doc(userId).get();
-  const data=doc.exists?doc.data().timetable||{}:{};
-  createTable(data);
+function login(){
+const provider=new firebase.auth.GoogleAuthProvider();
+auth.signInWithPopup(provider);
 }
 
-function createTable(data){
-  let html="<table><tr><th></th>";
-  days.forEach(d=>html+=`<th>${d}</th>`);
-  html+="</tr>";
-  for(let i=1;i<=9;i++){
-    html+=`<tr><th>${i}교시</th>`;
-    days.forEach(d=>{
-      const key=d+"-"+i;
-      html+=`<td onclick="editCell('${key}')">${data[key]||""}</td>`;
-    });
-    html+="</tr>";
-  }
-  html+="</table>";
-  document.getElementById("timetable").innerHTML=html;
+auth.onAuthStateChanged(async user=>{
+if(user){
+userId=user.uid;
+document.getElementById("loginCard").style.display="none";
+document.getElementById("main").style.display="block";
+loadTimetable();
+showToday();
+loadStats();
+loadCalendar();
+}
+});
+
+function loadTimetable(){
+let gridHTML="";
+gridHTML+="<div></div>";
+days.forEach(d=>gridHTML+=`<div class='dayHeader'>${d}</div>`);
+for(let i=1;i<=9;i++){
+gridHTML+=`<div>${i}</div>`;
+for(let d=0;d<7;d++){
+gridHTML+=`<input id="${days[d]}-${i}" />`;
+}
+}
+document.getElementById("timetableGrid").innerHTML=gridHTML;
+db.collection("users").doc(userId).get().then(doc=>{
+if(doc.exists){
+const data=doc.data().timetable||{};
+for(const key in data){
+const el=document.getElementById(key);
+if(el) el.value=data[key];
+}
+}
+});
 }
 
-async function editCell(key){
-  const subject=prompt("과목 입력");
-  if(subject!==null){
-    const docRef=db.collection("users").doc(userId);
-    const doc=await docRef.get();
-    const data=doc.exists?doc.data().timetable||{}:{};
-    data[key]=subject;
-    await docRef.set({timetable:data},{merge:true});
-    loadTable();
-  }
+function saveTimetable(){
+let data={};
+days.forEach(d=>{
+for(let i=1;i<=9;i++){
+const val=document.getElementById(d+"-"+i).value;
+if(val) data[d+"-"+i]=val;
+}
+});
+db.collection("users").doc(userId).set({timetable:data},{merge:true});
+alert("저장 완료");
 }
 
 async function showToday(){
-  const today=new Date();
-  const dayIndex=today.getDay();
-  const dayName=days[(dayIndex+6)%7];
-  document.getElementById("todayTitle").innerText="오늘 ("+dayName+")";
+const today=new Date();
+const dayIndex=today.getDay();
+const dayName=days[(dayIndex+6)%7];
+const todayStr=today.toISOString().split("T")[0];
+document.getElementById("todayTitle").innerText="오늘 ("+dayName+")";
 
-  const doc=await db.collection("users").doc(userId).get();
-  const data=doc.exists?doc.data().timetable||{}:{};
+const doc=await db.collection("users").doc(userId).get();
+const data=doc.exists?doc.data().timetable||{}:{};
+const reviewData=doc.exists?doc.data().review||{}:{};
 
-  let html="";
-  for(let i=1;i<=9;i++){
-    const key=dayName+"-"+i;
-    if(data[key]){
-      html+=`<div>${i}교시 - ${data[key]}
-      <button onclick="mark('${key}','done')">완료</button>
-      <button onclick="mark('${key}','skip')">불필요</button>
-      </div>`;
-    }
-  }
-  document.getElementById("todaySchedule").innerHTML=html;
+let html="";
+for(let i=1;i<=9;i++){
+const key=dayName+"-"+i;
+if(data[key]){
+const reviewKey=todayStr+"-"+key;
+let icon="🔴";
+if(reviewData[reviewKey]==="done") icon="🟢";
+if(reviewData[reviewKey]==="skip") icon="⚪";
+
+html+=`<button class="smallBtn" onclick="chooseStatus('${key}')">${icon} ${data[key]}</button>`;
+}
+}
+document.getElementById("todaySummary").innerHTML=html;
 }
 
-async function mark(key,type){
-  const todayStr=new Date().toISOString().split("T")[0];
-  const docRef=db.collection("users").doc(userId);
-  await docRef.set({
-    review:{
-      [todayStr+"-"+key]:type
-    }
-  },{merge:true});
-  alert("저장됨");
+async function chooseStatus(key){
+const choice=prompt("1=복습 완료\n2=불필요");
+if(choice!=="1"&&choice!=="2") return;
+const todayStr=new Date().toISOString().split("T")[0];
+const type=choice==="1"?"done":"skip";
+await db.collection("users").doc(userId).set({
+review:{[todayStr+"-"+key]:type}
+},{merge:true});
+showToday();
+loadStats();
+loadCalendar();
 }
 
 async function saveExtra(){
-  const text=document.getElementById("extraStudy").value;
-  const todayStr=new Date().toISOString().split("T")[0];
-  await db.collection("users").doc(userId).set({
-    extra:{[todayStr]:text}
-  },{merge:true});
-  alert("저장됨");
+const text=document.getElementById("extraStudy").value;
+const todayStr=new Date().toISOString().split("T")[0];
+await db.collection("users").doc(userId).set({
+extra:{[todayStr]:text}
+},{merge:true});
+alert("저장됨");
 }
 
-</script>
+async function loadStats(){
+const doc=await db.collection("users").doc(userId).get();
+if(!doc.exists) return;
+const review=doc.data().review||{};
+let done=0,skip=0,none=0;
+Object.values(review).forEach(v=>{
+if(v==="done") done++;
+else if(v==="skip") skip++;
+});
+document.getElementById("doneCount").innerText=done;
+document.getElementById("skipCount").innerText=skip;
+document.getElementById("noneCount").innerText="(자동계산)";
+}
 
+async function loadCalendar(){
+const cal=document.getElementById("calendar");
+cal.innerHTML="";
+const today=new Date();
+const year=today.getFullYear();
+const month=today.getMonth();
+const last=new Date(year,month+1,0).getDate();
+
+const doc=await db.collection("users").doc(userId).get();
+const review=doc.exists?doc.data().review||{}:{};
+
+for(let d=1;d<=last;d++){
+const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+let hasDone=false;
+let hasSkip=false;
+for(const key in review){
+if(key.startsWith(dateStr)){
+if(review[key]==="done") hasDone=true;
+if(review[key]==="skip") hasSkip=true;
+}
+}
+let cls="red";
+if(hasDone) cls="green";
+else if(hasSkip) cls="gray";
+
+cal.innerHTML+=`<div class="calDay ${cls}">${d}</div>`;
+}
+}
+</script>
 </body>
 </html>
