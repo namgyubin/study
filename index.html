@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Study Planner</title>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* 🔥 네 Firebase 설정 */
+const firebaseConfig = {
+  apiKey: "AIzaSyDwusubOIRaETM6p7Bn0FIJXLzOngknoNw",
+  authDomain: "study-33c31.firebaseapp.com",
+  projectId: "study-33c31",
+  storageBucket: "study-33c31.firebasestorage.app",
+  messagingSenderId: "219345133274",
+  appId: "1:219345133274:web:9288b1301abe88bb4dcfe3",
+  measurementId: "G-E74MLC9NKE"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
+
+let user;
+
+window.login = async function(){
+  const provider = new GoogleAuthProvider();
+  await signInWithPopup(auth, provider);
+  user = auth.currentUser;
+  document.getElementById("planner").style.display="block";
+  loadData();
+}
+
+async function loadData(){
+  const ref = doc(db,"users",user.uid);
+  const snap = await getDoc(ref);
+  const data = snap.exists()? snap.data():{};
+  document.getElementById("data").value =
+    JSON.stringify(data,null,2);
+}
+
+window.save = async function(){
+  const text = document.getElementById("data").value;
+  await setDoc(doc(db,"users",user.uid), JSON.parse(text));
+  alert("저장 완료");
+}
+
+</script>
+</head>
+
+<body style="text-align:center;font-family:sans-serif;">
+
+<h2>📚 클라우드 스터디 플래너</h2>
+<button onclick="login()">구글 로그인</button>
+
+<div id="planner" style="display:none;">
+  <h3>여기에 저장됨 (클라우드)</h3>
+  <textarea id="data" rows="15" cols="40"></textarea><br>
+  <button onclick="save()">저장</button>
+</div>
+
+</body>
+</html>
