@@ -3,6 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <title>Study Planner</title>
+<style>
+body { font-family: sans-serif; text-align:center; }
+table { border-collapse: collapse; margin:auto; margin-top:20px;}
+td, th {
+  border:1px solid #333;
+  width:70px;
+  height:45px;
+  cursor:pointer;
+}
+.completed { background:#a0e7a0; }
+.skip { background:#d3d3d3; }
+button { margin:5px; padding:6px 10px; }
+textarea { width:90%; max-width:400px; height:80px; }
+#today button { display:block; margin:5px auto; width:200px; }
+</style>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -18,8 +33,7 @@ const firebaseConfig = {
   projectId: "study-33c31",
   storageBucket: "study-33c31.firebasestorage.app",
   messagingSenderId: "219345133274",
-  appId: "1:219345133274:web:9288b1301abe88bb4dcfe3",
-  measurementId: "G-E74MLC9NKE"
+  appId: "1:219345133274:web:9288b1301abe88bb4dcfe3"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -27,6 +41,10 @@ const auth = getAuth();
 const db = getFirestore();
 
 let user;
+let data = {};
+
+const days=["월","화","수","목","금","토","일"];
+const periods=9;
 
 window.login = async function(){
   const provider = new GoogleAuthProvider();
@@ -39,29 +57,98 @@ window.login = async function(){
 async function loadData(){
   const ref = doc(db,"users",user.uid);
   const snap = await getDoc(ref);
-  const data = snap.exists()? snap.data():{};
-  document.getElementById("data").value =
-    JSON.stringify(data,null,2);
+  data = snap.exists()? snap.data():{};
+  createTable();
+  showToday();
 }
 
-window.save = async function(){
-  const text = document.getElementById("data").value;
-  await setDoc(doc(db,"users",user.uid), JSON.parse(text));
-  alert("저장 완료");
+async function saveData(){
+  await setDoc(doc(db,"users",user.uid), data);
+}
+
+function createTable(){
+  let table="<tr><th></th>";
+  for(let d of days) table+="<th>"+d+"</th>";
+  table+="</tr>";
+
+  for(let i=1;i<=periods;i++){
+    table+="<tr><th>"+i+"</th>";
+    for(let d of days){
+      let key=d+"-"+i;
+      let val=data[key]?.subject || "";
+      let status=data[key]?.status || "";
+      table+=`<td class="${status}" onclick="edit('${key}')">${val}</td>`;
+    }
+    table+="</tr>";
+  }
+  document.getElementById("schedule").innerHTML=table;
+}
+
+window.edit = async function(key){
+  let subject=prompt("과목 입력:", data[key]?.subject || "");
+  if(subject===null) return;
+
+  data[key]={ subject:subject, status:"" };
+  await saveData();
+  createTable();
+  showToday();
+}
+
+window.review = async function(key){
+  let choice=prompt("1: 복습 완료\n2: 복습 필요 없음");
+  if(choice=="1") data[key].status="completed";
+  if(choice=="2") data[key].status="skip";
+  await saveData();
+  createTable();
+  showToday();
+}
+
+function showToday(){
+  const todayIndex=(new Date().getDay()+6)%7;
+  const today=days[todayIndex];
+  const div=document.getElementById("today");
+  div.innerHTML="<h3>📅 오늘("+today+")</h3>";
+
+  for(let i=1;i<=periods;i++){
+    let key=today+"-"+i;
+    if(data[key]?.subject){
+      let btn=document.createElement("button");
+      btn.innerText=i+"교시 "+data[key].subject;
+      btn.onclick=()=>review(key);
+
+      if(data[key].status==="completed") btn.style.background="#a0e7a0";
+      if(data[key].status==="skip") btn.style.background="#d3d3d3";
+
+      div.appendChild(btn);
+    }
+  }
+}
+
+window.saveExtra = async function(){
+  data["extra-"+new Date().toDateString()] =
+    document.getElementById("extra").value;
+  await saveData();
+  alert("저장됨");
 }
 
 </script>
 </head>
 
-<body style="text-align:center;font-family:sans-serif;">
+<body>
 
 <h2>📚 클라우드 스터디 플래너</h2>
 <button onclick="login()">구글 로그인</button>
 
 <div id="planner" style="display:none;">
-  <h3>여기에 저장됨 (클라우드)</h3>
-  <textarea id="data" rows="15" cols="40"></textarea><br>
-  <button onclick="save()">저장</button>
+
+<table id="schedule"></table>
+
+<div id="today"></div>
+
+<h3>✏ 오늘 추가 공부</h3>
+<textarea id="extra"></textarea><br>
+<button onclick="saveExtra()">저장</button>
+
 </div>
 
 </body>
