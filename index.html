@@ -1,7 +1,226 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8"><!DOCTYPE html>
+<html>
+<head>
 <meta charset="UTF-8">
+<title>Study Planner Pro</title>
+<style>
+body{
+  font-family:-apple-system,BlinkMacSystemFont;
+  background:#f4f6fb;
+  margin:0;
+  text-align:center;
+}
+h2{ margin-top:20px; }
+.card{
+  background:white;
+  margin:20px auto;
+  padding:20px;
+  border-radius:16px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.08);
+  width:95%;
+  max-width:500px;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+td,th{
+  border:1px solid #ddd;
+  padding:6px;
+  font-size:12px;
+}
+td{ cursor:pointer; }
+.completed{ background:#b8f2c9; }
+.skip{ background:#e0e0e0; }
+
+button{
+  background:#4f7cff;
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:10px;
+  margin:5px;
+}
+button:active{ transform:scale(0.97); }
+
+.progress-bar{
+  height:10px;
+  background:#ddd;
+  border-radius:10px;
+  overflow:hidden;
+}
+.progress{
+  height:10px;
+  background:#4f7cff;
+}
+
+.calendar{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:5px;
+  font-size:12px;
+}
+.day{
+  padding:8px;
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 2px 5px rgba(0,0,0,0.05);
+}
+.mark{ background:#b8f2c9 !important; }
+
+textarea{
+  width:100%;
+  border-radius:10px;
+  border:1px solid #ddd;
+  padding:8px;
+}
+</style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } 
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDwusubOIRaETM6p7Bn0FIJXLzOngknoNw",
+  authDomain: "study-33c31.firebaseapp.com",
+  projectId: "study-33c31",
+  storageBucket: "study-33c31.firebasestorage.app",
+  messagingSenderId: "219345133274",
+  appId: "1:219345133274:web:9288b1301abe88bb4dcfe3"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
+
+let user;
+let data={};
+
+const days=["월","화","수","목","금","토","일"];
+const periods=9;
+
+window.login = async function(){
+  const provider=new GoogleAuthProvider();
+  await signInWithPopup(auth,provider);
+  user=auth.currentUser;
+  document.getElementById("app").style.display="block";
+  load();
+}
+
+async function load(){
+  const snap=await getDoc(doc(db,"users",user.uid));
+  data=snap.exists()?snap.data():{};
+  renderSchedule();
+  renderStats();
+  renderCalendar();
+}
+
+async function save(){
+  await setDoc(doc(db,"users",user.uid),data);
+  renderStats();
+  renderCalendar();
+}
+
+function renderSchedule(){
+  let html="<table><tr><th></th>";
+  days.forEach(d=>html+="<th>"+d+"</th>");
+  html+="</tr>";
+  for(let i=1;i<=periods;i++){
+    html+="<tr><th>"+i+"</th>";
+    days.forEach(d=>{
+      let key=d+"-"+i;
+      let val=data[key]?.subject||"";
+      let status=data[key]?.status||"";
+      html+=`<td class="${status}" onclick="edit('${key}')">${val}</td>`;
+    });
+    html+="</tr>";
+  }
+  html+="</table>";
+  document.getElementById("schedule").innerHTML=html;
+}
+
+window.edit=async function(key){
+  let subject=prompt("과목 입력:",data[key]?.subject||"");
+  if(subject===null) return;
+  data[key]={subject,status:""};
+  await save();
+  renderSchedule();
+}
+
+window.review=async function(key){
+  let choice=prompt("1 완료 / 2 불필요");
+  if(choice=="1") data[key].status="completed";
+  if(choice=="2") data[key].status="skip";
+  await save();
+  renderSchedule();
+}
+
+function renderStats(){
+  let total=0, done=0;
+  Object.values(data).forEach(v=>{
+    if(v?.subject){
+      total++;
+      if(v.status==="completed") done++;
+    }
+  });
+  let percent=total?Math.round(done/total*100):0;
+  document.getElementById("stats").innerHTML=
+  `<p>복습 완료 ${done} / ${total} (${percent}%)</p>
+  <div class="progress-bar">
+    <div class="progress" style="width:${percent}%"></div>
+  </div>`;
+}
+
+function renderCalendar(){
+  let now=new Date();
+  let year=now.getFullYear();
+  let month=now.getMonth();
+  let first=new Date(year,month,1).getDay();
+  let last=new Date(year,month+1,0).getDate();
+  let html="";
+  for(let i=0;i<first;i++) html+="<div></div>";
+  for(let d=1;d<=last;d++){
+    let key="extra-"+new Date(year,month,d).toDateString();
+    let mark=data[key]?"mark":"";
+    html+=`<div class="day ${mark}">${d}</div>`;
+  }
+  document.getElementById("calendar").innerHTML=html;
+}
+</script>
+</head>
+
+<body>
+
+<h2>📚 Study Planner Pro</h2>
+<button onclick="login()">구글 로그인</button>
+
+<div id="app" style="display:none;">
+
+<div class="card">
+<h3>시간표</h3>
+<div id="schedule"></div>
+</div>
+
+<div class="card">
+<h3>📊 통계</h3>
+<div id="stats"></div>
+</div>
+
+<div class="card">
+<h3>📅 이번 달 기록</h3>
+<div class="calendar" id="calendar"></div>
+</div>
+
+</div>
+
+</body>
+</html>
 <title>Study Planner</title>
 <style>
 body { font-family: sans-serif; text-align:center; }
