@@ -1,81 +1,95 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8"><!DOCTYPE html>
-<html>
-<head>
 <meta charset="UTF-8">
-<title>Study Planner Pro</title>
+<title>Study Planner Ultimate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-body{
-  font-family:-apple-system,BlinkMacSystemFont;
-  background:#f4f6fb;
-  margin:0;
-  text-align:center;
+:root{
+  --main:#5c7cfa;
+  --bg:#f4f6fb;
+  --card:#ffffff;
 }
-h2{ margin-top:20px; }
-.card{
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont;
+  background:var(--bg);
+}
+header{
+  background:var(--main);
+  color:white;
+  padding:15px;
+  text-align:center;
+  font-size:20px;
+}
+nav{
+  display:flex;
+  justify-content:space-around;
   background:white;
-  margin:20px auto;
-  padding:20px;
-  border-radius:16px;
-  box-shadow:0 5px 15px rgba(0,0,0,0.08);
-  width:95%;
-  max-width:500px;
+  padding:10px 0;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+nav button{
+  background:none;
+  border:none;
+  font-size:14px;
+}
+.active{ color:var(--main); font-weight:bold; }
+
+.section{ display:none; padding:15px; }
+.card{
+  background:var(--card);
+  border-radius:15px;
+  padding:15px;
+  margin-bottom:15px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.05);
 }
 table{
   width:100%;
   border-collapse:collapse;
+  font-size:12px;
 }
 td,th{
   border:1px solid #ddd;
-  padding:6px;
-  font-size:12px;
+  padding:5px;
+  text-align:center;
 }
 td{ cursor:pointer; }
-.completed{ background:#b8f2c9; }
-.skip{ background:#e0e0e0; }
-
-button{
-  background:#4f7cff;
-  color:white;
-  border:none;
-  padding:8px 14px;
-  border-radius:10px;
-  margin:5px;
-}
-button:active{ transform:scale(0.97); }
+.completed{ background:#b2f2bb; }
+.skip{ background:#dee2e6; }
 
 .progress-bar{
-  height:10px;
+  height:8px;
   background:#ddd;
   border-radius:10px;
   overflow:hidden;
 }
 .progress{
-  height:10px;
-  background:#4f7cff;
+  height:8px;
+  background:var(--main);
 }
-
 .calendar{
   display:grid;
   grid-template-columns:repeat(7,1fr);
-  gap:5px;
-  font-size:12px;
+  gap:6px;
 }
 .day{
+  background:white;
   padding:8px;
-  background:#fff;
-  border-radius:8px;
-  box-shadow:0 2px 5px rgba(0,0,0,0.05);
-}
-.mark{ background:#b8f2c9 !important; }
-
-textarea{
-  width:100%;
   border-radius:10px;
-  border:1px solid #ddd;
-  padding:8px;
+  font-size:12px;
+  text-align:center;
+}
+.mark{ background:#b2f2bb; }
+
+button.main{
+  background:var(--main);
+  color:white;
+  border:none;
+  padding:8px 15px;
+  border-radius:10px;
+  margin:5px 0;
 }
 </style>
 
@@ -101,34 +115,51 @@ const db = getFirestore();
 
 let user;
 let data={};
-
 const days=["월","화","수","목","금","토","일"];
 const periods=9;
 
-window.login = async function(){
+window.login=async()=>{
   const provider=new GoogleAuthProvider();
   await signInWithPopup(auth,provider);
   user=auth.currentUser;
-  document.getElementById("app").style.display="block";
   load();
-}
+};
 
 async function load(){
   const snap=await getDoc(doc(db,"users",user.uid));
   data=snap.exists()?snap.data():{};
+  document.getElementById("app").style.display="block";
+  renderAll();
+}
+
+async function save(){
+  await setDoc(doc(db,"users",user.uid),data);
+  renderAll();
+}
+
+function renderAll(){
+  renderToday();
   renderSchedule();
   renderStats();
   renderCalendar();
 }
 
-async function save(){
-  await setDoc(doc(db,"users",user.uid),data);
-  renderStats();
-  renderCalendar();
+function renderToday(){
+  const todayIndex=(new Date().getDay()+6)%7;
+  const today=days[todayIndex];
+  let html="<div class='card'><h3>오늘 ("+today+")</h3>";
+  for(let i=1;i<=periods;i++){
+    let key=today+"-"+i;
+    if(data[key]?.subject){
+      html+=`<p onclick="review('${key}')">${i}교시 ${data[key].subject}</p>`;
+    }
+  }
+  html+="</div>";
+  document.getElementById("today").innerHTML=html;
 }
 
 function renderSchedule(){
-  let html="<table><tr><th></th>";
+  let html="<div class='card'><h3>시간표</h3><table><tr><th></th>";
   days.forEach(d=>html+="<th>"+d+"</th>");
   html+="</tr>";
   for(let i=1;i<=periods;i++){
@@ -141,39 +172,40 @@ function renderSchedule(){
     });
     html+="</tr>";
   }
-  html+="</table>";
+  html+="</table></div>";
   document.getElementById("schedule").innerHTML=html;
 }
 
-window.edit=async function(key){
-  let subject=prompt("과목 입력:",data[key]?.subject||"");
-  if(subject===null) return;
+window.edit=async(key)=>{
+  let subject=prompt("과목 입력",data[key]?.subject||"");
+  if(subject===null)return;
   data[key]={subject,status:""};
   await save();
-  renderSchedule();
-}
+};
 
-window.review=async function(key){
-  let choice=prompt("1 완료 / 2 불필요");
-  if(choice=="1") data[key].status="completed";
-  if(choice=="2") data[key].status="skip";
+window.review=async(key)=>{
+  let c=prompt("1 완료 / 2 불필요");
+  if(c=="1")data[key].status="completed";
+  if(c=="2")data[key].status="skip";
   await save();
-  renderSchedule();
-}
+};
 
 function renderStats(){
-  let total=0, done=0;
+  let total=0,done=0;
   Object.values(data).forEach(v=>{
     if(v?.subject){
       total++;
-      if(v.status==="completed") done++;
+      if(v.status==="completed")done++;
     }
   });
   let percent=total?Math.round(done/total*100):0;
   document.getElementById("stats").innerHTML=
-  `<p>복습 완료 ${done} / ${total} (${percent}%)</p>
+  `<div class="card">
+  <h3>통계</h3>
+  <p>${done} / ${total} 완료 (${percent}%)</p>
   <div class="progress-bar">
     <div class="progress" style="width:${percent}%"></div>
+  </div>
   </div>`;
 }
 
@@ -183,13 +215,14 @@ function renderCalendar(){
   let month=now.getMonth();
   let first=new Date(year,month,1).getDay();
   let last=new Date(year,month+1,0).getDate();
-  let html="";
-  for(let i=0;i<first;i++) html+="<div></div>";
+  let html="<div class='card'><h3>이번 달</h3><div class='calendar'>";
+  for(let i=0;i<first;i++)html+="<div></div>";
   for(let d=1;d<=last;d++){
     let key="extra-"+new Date(year,month,d).toDateString();
     let mark=data[key]?"mark":"";
     html+=`<div class="day ${mark}">${d}</div>`;
   }
+  html+="</div></div>";
   document.getElementById("calendar").innerHTML=html;
 }
 </script>
@@ -197,177 +230,14 @@ function renderCalendar(){
 
 <body>
 
-<h2>📚 Study Planner Pro</h2>
-<button onclick="login()">구글 로그인</button>
+<header>📚 Study Planner Ultimate</header>
+<button class="main" onclick="login()">구글 로그인</button>
 
 <div id="app" style="display:none;">
-
-<div class="card">
-<h3>시간표</h3>
-<div id="schedule"></div>
-</div>
-
-<div class="card">
-<h3>📊 통계</h3>
-<div id="stats"></div>
-</div>
-
-<div class="card">
-<h3>📅 이번 달 기록</h3>
-<div class="calendar" id="calendar"></div>
-</div>
-
-</div>
-
-</body>
-</html>
-<title>Study Planner</title>
-<style>
-body { font-family: sans-serif; text-align:center; }
-table { border-collapse: collapse; margin:auto; margin-top:20px;}
-td, th {
-  border:1px solid #333;
-  width:70px;
-  height:45px;
-  cursor:pointer;
-}
-.completed { background:#a0e7a0; }
-.skip { background:#d3d3d3; }
-button { margin:5px; padding:6px 10px; }
-textarea { width:90%; max-width:400px; height:80px; }
-#today button { display:block; margin:5px auto; width:200px; }
-</style>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-/* 🔥 네 Firebase 설정 */
-const firebaseConfig = {
-  apiKey: "AIzaSyDwusubOIRaETM6p7Bn0FIJXLzOngknoNw",
-  authDomain: "study-33c31.firebaseapp.com",
-  projectId: "study-33c31",
-  storageBucket: "study-33c31.firebasestorage.app",
-  messagingSenderId: "219345133274",
-  appId: "1:219345133274:web:9288b1301abe88bb4dcfe3"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
-
-let user;
-let data = {};
-
-const days=["월","화","수","목","금","토","일"];
-const periods=9;
-
-window.login = async function(){
-  const provider = new GoogleAuthProvider();
-  await signInWithPopup(auth, provider);
-  user = auth.currentUser;
-  document.getElementById("planner").style.display="block";
-  loadData();
-}
-
-async function loadData(){
-  const ref = doc(db,"users",user.uid);
-  const snap = await getDoc(ref);
-  data = snap.exists()? snap.data():{};
-  createTable();
-  showToday();
-}
-
-async function saveData(){
-  await setDoc(doc(db,"users",user.uid), data);
-}
-
-function createTable(){
-  let table="<tr><th></th>";
-  for(let d of days) table+="<th>"+d+"</th>";
-  table+="</tr>";
-
-  for(let i=1;i<=periods;i++){
-    table+="<tr><th>"+i+"</th>";
-    for(let d of days){
-      let key=d+"-"+i;
-      let val=data[key]?.subject || "";
-      let status=data[key]?.status || "";
-      table+=`<td class="${status}" onclick="edit('${key}')">${val}</td>`;
-    }
-    table+="</tr>";
-  }
-  document.getElementById("schedule").innerHTML=table;
-}
-
-window.edit = async function(key){
-  let subject=prompt("과목 입력:", data[key]?.subject || "");
-  if(subject===null) return;
-
-  data[key]={ subject:subject, status:"" };
-  await saveData();
-  createTable();
-  showToday();
-}
-
-window.review = async function(key){
-  let choice=prompt("1: 복습 완료\n2: 복습 필요 없음");
-  if(choice=="1") data[key].status="completed";
-  if(choice=="2") data[key].status="skip";
-  await saveData();
-  createTable();
-  showToday();
-}
-
-function showToday(){
-  const todayIndex=(new Date().getDay()+6)%7;
-  const today=days[todayIndex];
-  const div=document.getElementById("today");
-  div.innerHTML="<h3>📅 오늘("+today+")</h3>";
-
-  for(let i=1;i<=periods;i++){
-    let key=today+"-"+i;
-    if(data[key]?.subject){
-      let btn=document.createElement("button");
-      btn.innerText=i+"교시 "+data[key].subject;
-      btn.onclick=()=>review(key);
-
-      if(data[key].status==="completed") btn.style.background="#a0e7a0";
-      if(data[key].status==="skip") btn.style.background="#d3d3d3";
-
-      div.appendChild(btn);
-    }
-  }
-}
-
-window.saveExtra = async function(){
-  data["extra-"+new Date().toDateString()] =
-    document.getElementById("extra").value;
-  await saveData();
-  alert("저장됨");
-}
-
-</script>
-</head>
-
-<body>
-
-<h2>📚 클라우드 스터디 플래너</h2>
-<button onclick="login()">구글 로그인</button>
-
-<div id="planner" style="display:none;">
-
-<table id="schedule"></table>
-
-<div id="today"></div>
-
-<h3>✏ 오늘 추가 공부</h3>
-<textarea id="extra"></textarea><br>
-<button onclick="saveExtra()">저장</button>
-
+<div id="today" class="section" style="display:block;"></div>
+<div id="schedule" class="section"></div>
+<div id="stats" class="section"></div>
+<div id="calendar" class="section"></div>
 </div>
 
 </body>
