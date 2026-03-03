@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Study Planner Pro</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -10,8 +11,8 @@
 
 <style>
 body{
-  font-family:-apple-system,BlinkMacSystemFont;
   margin:0;
+  font-family:-apple-system,BlinkMacSystemFont;
   background:#f4f6fb;
 }
 header{
@@ -24,13 +25,13 @@ header{
 }
 .container{
   padding:20px;
-  max-width:900px;
+  max-width:1000px;
   margin:auto;
 }
 .card{
   background:white;
-  border-radius:16px;
   padding:20px;
+  border-radius:16px;
   margin-bottom:20px;
   box-shadow:0 4px 12px rgba(0,0,0,0.05);
 }
@@ -42,55 +43,73 @@ button{
   border-radius:8px;
   margin:4px;
 }
-input{
+textarea{
   width:100%;
-  padding:6px;
-  border-radius:6px;
+  margin-top:10px;
+  padding:8px;
+  border-radius:8px;
   border:1px solid #ddd;
 }
+
+/* 🔥 시간표 */
 .grid{
   display:grid;
-  grid-template-columns:repeat(6,1fr);
-  gap:5px;
+  grid-template-columns: 80px repeat(7, 1fr);
+  gap:6px;
+  align-items:center;
 }
 .dayHeader{
   font-weight:bold;
   text-align:center;
 }
-.smallBtn{
-  font-size:13px;
-  padding:6px 10px;
+.period{
+  text-align:center;
+  font-weight:bold;
 }
+input{
+  width:100%;
+  padding:6px;
+  border-radius:6px;
+  border:1px solid #ddd;
+  box-sizing:border-box;
+}
+
+/* 통계 */
 .statBox{
   display:flex;
-  justify-content:space-between;
-  margin-top:10px;
+  justify-content:space-around;
+  font-size:16px;
 }
+
+/* 달력 */
 .calendar{
   display:grid;
   grid-template-columns:repeat(7,1fr);
-  gap:4px;
-  margin-top:10px;
+  gap:6px;
 }
 .calDay{
-  background:#eee;
-  padding:8px;
-  border-radius:6px;
+  padding:10px;
+  border-radius:8px;
   text-align:center;
   font-size:13px;
+  background:#eee;
 }
 .green{background:#b8f5c4;}
-.red{background:#ffb3b3;}
 .gray{background:#ddd;}
+.red{background:#ffb3b3;}
+.smallBtn{
+  font-size:13px;
+}
 </style>
 </head>
+
 <body>
 
 <header>📚 Study Planner Pro</header>
 
 <div class="container">
 
-<div class="card" id="loginCard">
+<div id="loginCard" class="card">
 <button onclick="login()">Google 로그인</button>
 </div>
 
@@ -114,7 +133,6 @@ input{
 <div class="statBox">
 <div>완료: <span id="doneCount">0</span></div>
 <div>불필요: <span id="skipCount">0</span></div>
-<div>미완료: <span id="noneCount">0</span></div>
 </div>
 </div>
 
@@ -127,6 +145,7 @@ input{
 </div>
 
 <script>
+
 const firebaseConfig={
 apiKey:"AIzaSyDwusubOIRaETM6p7Bn0FIJXLzOngknoNw",
 authDomain:"study-33c31.firebaseapp.com",
@@ -160,17 +179,20 @@ loadCalendar();
 }
 });
 
+/* 시간표 불러오기 */
 function loadTimetable(){
-let gridHTML="";
-gridHTML+="<div></div>";
-days.forEach(d=>gridHTML+=`<div class='dayHeader'>${d}</div>`);
+let html="";
+html+="<div></div>";
+days.forEach(d=>html+=`<div class="dayHeader">${d}</div>`);
+
 for(let i=1;i<=9;i++){
-gridHTML+=`<div>${i}</div>`;
+html+=`<div class="period">${i}교시</div>`;
 for(let d=0;d<7;d++){
-gridHTML+=`<input id="${days[d]}-${i}" />`;
+html+=`<input id="${days[d]}-${i}"/>`;
 }
 }
-document.getElementById("timetableGrid").innerHTML=gridHTML;
+document.getElementById("timetableGrid").innerHTML=html;
+
 db.collection("users").doc(userId).get().then(doc=>{
 if(doc.exists){
 const data=doc.data().timetable||{};
@@ -182,6 +204,7 @@ if(el) el.value=data[key];
 });
 }
 
+/* 시간표 저장 */
 function saveTimetable(){
 let data={};
 days.forEach(d=>{
@@ -194,25 +217,24 @@ db.collection("users").doc(userId).set({timetable:data},{merge:true});
 alert("저장 완료");
 }
 
+/* 오늘 표시 */
 async function showToday(){
 const today=new Date();
-const dayIndex=today.getDay();
-const dayName=days[(dayIndex+6)%7];
+const dayName=days[(today.getDay()+6)%7];
 const todayStr=today.toISOString().split("T")[0];
 document.getElementById("todayTitle").innerText="오늘 ("+dayName+")";
 
 const doc=await db.collection("users").doc(userId).get();
 const data=doc.exists?doc.data().timetable||{}:{};
-const reviewData=doc.exists?doc.data().review||{}:{};
+const review=doc.exists?doc.data().review||{}:{};
 
 let html="";
 for(let i=1;i<=9;i++){
 const key=dayName+"-"+i;
 if(data[key]){
-const reviewKey=todayStr+"-"+key;
 let icon="🔴";
-if(reviewData[reviewKey]==="done") icon="🟢";
-if(reviewData[reviewKey]==="skip") icon="⚪";
+if(review[todayStr+"-"+key]==="done") icon="🟢";
+if(review[todayStr+"-"+key]==="skip") icon="⚪";
 
 html+=`<button class="smallBtn" onclick="chooseStatus('${key}')">${icon} ${data[key]}</button>`;
 }
@@ -223,8 +245,8 @@ document.getElementById("todaySummary").innerHTML=html;
 async function chooseStatus(key){
 const choice=prompt("1=복습 완료\n2=불필요");
 if(choice!=="1"&&choice!=="2") return;
-const todayStr=new Date().toISOString().split("T")[0];
 const type=choice==="1"?"done":"skip";
+const todayStr=new Date().toISOString().split("T")[0];
 await db.collection("users").doc(userId).set({
 review:{[todayStr+"-"+key]:type}
 },{merge:true});
@@ -242,20 +264,21 @@ extra:{[todayStr]:text}
 alert("저장됨");
 }
 
+/* 통계 */
 async function loadStats(){
 const doc=await db.collection("users").doc(userId).get();
 if(!doc.exists) return;
 const review=doc.data().review||{};
-let done=0,skip=0,none=0;
+let done=0,skip=0;
 Object.values(review).forEach(v=>{
 if(v==="done") done++;
-else if(v==="skip") skip++;
+if(v==="skip") skip++;
 });
 document.getElementById("doneCount").innerText=done;
 document.getElementById("skipCount").innerText=skip;
-document.getElementById("noneCount").innerText="(자동계산)";
 }
 
+/* 달력 */
 async function loadCalendar(){
 const cal=document.getElementById("calendar");
 cal.innerHTML="";
@@ -269,8 +292,7 @@ const review=doc.exists?doc.data().review||{}:{};
 
 for(let d=1;d<=last;d++){
 const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-let hasDone=false;
-let hasSkip=false;
+let hasDone=false,hasSkip=false;
 for(const key in review){
 if(key.startsWith(dateStr)){
 if(review[key]==="done") hasDone=true;
@@ -284,6 +306,7 @@ else if(hasSkip) cls="gray";
 cal.innerHTML+=`<div class="calDay ${cls}">${d}</div>`;
 }
 }
+
 </script>
 </body>
 </html>
